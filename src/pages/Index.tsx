@@ -1,67 +1,35 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-
-interface Product {
-  id: number;
-  name: string;
-  nameEn: string;
-  price: number;
-  omega: string;
-  benefits: string[];
-  image: string;
-  category: 'nuts' | 'seeds';
-}
-
-const products: Product[] = [
-  {
-    id: 1,
-    name: 'Масло кедра',
-    nameEn: 'Cedar Nut Oil',
-    price: 1890,
-    omega: 'Омега-6, Омега-9',
-    benefits: ['Укрепление иммунитета', 'Здоровье ЖКТ', 'Антиоксиданты'],
-    image: 'https://cdn.poehali.dev/projects/69989c02-0e01-448d-a9c1-5528fed42914/files/48a4c523-6d1b-477e-b726-ffb3d510fd66.jpg',
-    category: 'nuts'
-  },
-  {
-    id: 2,
-    name: 'Масло льна',
-    nameEn: 'Flax Seed Oil',
-    price: 890,
-    omega: 'Омега-3, Омега-6',
-    benefits: ['Мозговая активность', 'Чистая кожа', 'Здоровое сердце'],
-    image: 'https://cdn.poehali.dev/projects/69989c02-0e01-448d-a9c1-5528fed42914/files/17ac714d-59fd-4de9-b65b-95ed43bc9cb5.jpg',
-    category: 'seeds'
-  },
-  {
-    id: 3,
-    name: 'Масло тыквы',
-    nameEn: 'Pumpkin Seed Oil',
-    price: 990,
-    omega: 'Омега-6, Омега-9',
-    benefits: ['Мужское здоровье', 'Поддержка печени', 'Витамин E'],
-    image: 'https://cdn.poehali.dev/projects/69989c02-0e01-448d-a9c1-5528fed42914/files/17ac714d-59fd-4de9-b65b-95ed43bc9cb5.jpg',
-    category: 'seeds'
-  },
-  {
-    id: 4,
-    name: 'Масло черного тмина',
-    nameEn: 'Black Cumin Oil',
-    price: 1290,
-    omega: 'Омега-6, Омега-9',
-    benefits: ['Сильный иммунитет', 'Антибактериальное', 'Очищение организма'],
-    image: 'https://cdn.poehali.dev/projects/69989c02-0e01-448d-a9c1-5528fed42914/files/17ac714d-59fd-4de9-b65b-95ed43bc9cb5.jpg',
-    category: 'seeds'
-  }
-];
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { products, allOmegaTypes, allTags, type Product } from '@/data/products';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Index() {
   const [cart, setCart] = useState<Array<{product: Product, quantity: number}>>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'nuts' | 'seeds'>('all');
+  const [selectedOmega, setSelectedOmega] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const [orderData, setOrderData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    comment: '',
+    delivery: 'courier',
+    payment: 'card'
+  });
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
@@ -79,6 +47,47 @@ export default function Index() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const toggleOmega = (omega: string) => {
+    setSelectedOmega(prev => 
+      prev.includes(omega) ? prev.filter(o => o !== omega) : [...prev, omega]
+    );
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      if (selectedCategory !== 'all' && product.category !== selectedCategory) return false;
+      
+      if (selectedOmega.length > 0) {
+        const hasOmega = selectedOmega.some(omega => product.omega.includes(omega));
+        if (!hasOmega) return false;
+      }
+      
+      if (selectedTags.length > 0) {
+        const hasTags = selectedTags.some(tag => product.tags.includes(tag));
+        if (!hasTags) return false;
+      }
+      
+      if (priceRange === 'low' && product.price > 1000) return false;
+      if (priceRange === 'medium' && (product.price < 1000 || product.price > 1500)) return false;
+      if (priceRange === 'high' && product.price < 1500) return false;
+      
+      return true;
+    });
+  }, [selectedCategory, selectedOmega, selectedTags, priceRange]);
+
+  const clearFilters = () => {
+    setSelectedCategory('all');
+    setSelectedOmega([]);
+    setSelectedTags([]);
+    setPriceRange('all');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -191,15 +200,118 @@ export default function Index() {
       <section id="catalog" className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center space-y-4 mb-12">
-            <Badge className="bg-gold/20 text-gold border-gold/30">Хиты продаж</Badge>
+            <Badge className="bg-gold/20 text-gold border-gold/30">Полный каталог — 13 масел</Badge>
             <h2 className="text-4xl md:text-5xl font-cormorant font-bold">Наш ассортимент</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Премиальные масла холодного отжима из орехов и семян
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
+          <div className="mb-8 space-y-6">
+            <Tabs value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as any)}>
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
+                <TabsTrigger value="all">Все масла</TabsTrigger>
+                <TabsTrigger value="nuts">Ореховые</TabsTrigger>
+                <TabsTrigger value="seeds">Семенные</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Icon name="Filter" size={18} />
+                    Фильтры по Омега-кислотам
+                  </h3>
+                  {(selectedOmega.length > 0 || selectedTags.length > 0 || priceRange !== 'all') && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      Сбросить все
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {allOmegaTypes.map(omega => (
+                    <Badge
+                      key={omega}
+                      variant={selectedOmega.includes(omega) ? 'default' : 'outline'}
+                      className="cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => toggleOmega(omega)}
+                    >
+                      {omega}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Icon name="Target" size={18} />
+                  Фильтры по назначению
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map(tag => (
+                    <Badge
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? 'default' : 'outline'}
+                      className="cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Icon name="DollarSign" size={18} />
+                  Цена
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant={priceRange === 'all' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => setPriceRange('all')}
+                  >
+                    Все цены
+                  </Badge>
+                  <Badge
+                    variant={priceRange === 'low' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => setPriceRange('low')}
+                  >
+                    До 1000 ₽
+                  </Badge>
+                  <Badge
+                    variant={priceRange === 'medium' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => setPriceRange('medium')}
+                  >
+                    1000-1500 ₽
+                  </Badge>
+                  <Badge
+                    variant={priceRange === 'high' ? 'default' : 'outline'}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => setPriceRange('high')}
+                  >
+                    От 1500 ₽
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <Icon name="Package" size={48} className="mx-auto text-muted-foreground mb-4" />
+              <p className="text-lg text-muted-foreground">По выбранным фильтрам товары не найдены</p>
+              <Button variant="outline" onClick={clearFilters} className="mt-4">
+                Сбросить фильтры
+              </Button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
               <Card key={product.id} className="group bg-card border-border/50 hover:border-primary/50 transition-all overflow-hidden">
                 <div className="aspect-square overflow-hidden bg-muted">
                   <img 
@@ -214,9 +326,13 @@ export default function Index() {
                     <p className="text-sm text-muted-foreground">{product.nameEn}</p>
                   </div>
                   
-                  <Badge variant="outline" className="border-nature/30 text-nature">
-                    {product.omega}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {product.omega.map((o, idx) => (
+                      <Badge key={idx} variant="outline" className="border-nature/30 text-nature text-xs">
+                        {o}
+                      </Badge>
+                    ))}
+                  </div>
                   
                   <ul className="space-y-1">
                     {product.benefits.map((benefit, i) => (
@@ -227,20 +343,29 @@ export default function Index() {
                     ))}
                   </ul>
                   
-                  <div className="pt-4 border-t border-border flex items-center justify-between">
-                    <span className="text-2xl font-cormorant font-bold text-primary">{product.price} ₽</span>
-                    <Button 
-                      onClick={() => addToCart(product)}
-                      size="sm" 
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      В корзину
-                    </Button>
+                  <div className="pt-4 border-t border-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-cormorant font-bold text-primary">{product.price} ₽</span>
+                      <Button 
+                        onClick={() => addToCart(product)}
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        В корзину
+                      </Button>
+                    </div>
+                    <Link to={`/product/${product.slug}`}>
+                      <Button variant="ghost" size="sm" className="w-full">
+                        Подробнее
+                        <Icon name="ArrowRight" size={16} className="ml-2" />
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -389,7 +514,14 @@ export default function Index() {
                     <span>Итого:</span>
                     <span className="text-primary">{cartTotal} ₽</span>
                   </div>
-                  <Button className="w-full bg-primary hover:bg-primary/90" size="lg">
+                  <Button 
+                    className="w-full bg-primary hover:bg-primary/90" 
+                    size="lg"
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      setIsCheckoutOpen(true);
+                    }}
+                  >
                     Оформить заказ
                     <Icon name="ArrowRight" size={20} className="ml-2" />
                   </Button>
@@ -399,6 +531,189 @@ export default function Index() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-cormorant text-3xl">Оформление заказа</DialogTitle>
+            <DialogDescription>
+              Заполните данные для доставки вашего заказа
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Контактные данные</h3>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">ФИО *</Label>
+                  <Input 
+                    id="name" 
+                    placeholder="Иванов Иван Иванович"
+                    value={orderData.name}
+                    onChange={(e) => setOrderData({...orderData, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Телефон *</Label>
+                  <Input 
+                    id="phone" 
+                    placeholder="+7 (999) 123-45-67"
+                    value={orderData.phone}
+                    onChange={(e) => setOrderData({...orderData, phone: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email"
+                  placeholder="example@mail.ru"
+                  value={orderData.email}
+                  onChange={(e) => setOrderData({...orderData, email: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Доставка</h3>
+              
+              <RadioGroup value={orderData.delivery} onValueChange={(v) => setOrderData({...orderData, delivery: v})}>
+                <div className="flex items-center space-x-2 p-4 border border-border rounded-lg hover:border-primary cursor-pointer">
+                  <RadioGroupItem value="courier" id="courier" />
+                  <Label htmlFor="courier" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Icon name="Truck" size={20} className="text-primary" />
+                      <div>
+                        <p className="font-semibold">Курьерская доставка</p>
+                        <p className="text-sm text-muted-foreground">Доставим в течение 1-3 дней</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-4 border border-border rounded-lg hover:border-primary cursor-pointer">
+                  <RadioGroupItem value="pickup" id="pickup" />
+                  <Label htmlFor="pickup" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Icon name="Store" size={20} className="text-primary" />
+                      <div>
+                        <p className="font-semibold">Самовывоз</p>
+                        <p className="text-sm text-muted-foreground">Заберите из нашего офиса</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-4 border border-border rounded-lg hover:border-primary cursor-pointer">
+                  <RadioGroupItem value="post" id="post" />
+                  <Label htmlFor="post" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Icon name="Package" size={20} className="text-primary" />
+                      <div>
+                        <p className="font-semibold">Почта России</p>
+                        <p className="text-sm text-muted-foreground">Доставка по всей России 5-10 дней</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Адрес доставки *</Label>
+                <Textarea 
+                  id="address" 
+                  placeholder="Улица, дом, квартира, подъезд, этаж"
+                  value={orderData.address}
+                  onChange={(e) => setOrderData({...orderData, address: e.target.value})}
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Оплата</h3>
+              
+              <RadioGroup value={orderData.payment} onValueChange={(v) => setOrderData({...orderData, payment: v})}>
+                <div className="flex items-center space-x-2 p-4 border border-border rounded-lg hover:border-primary cursor-pointer">
+                  <RadioGroupItem value="card" id="card" />
+                  <Label htmlFor="card" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Icon name="CreditCard" size={20} className="text-primary" />
+                      <div>
+                        <p className="font-semibold">Онлайн оплата картой</p>
+                        <p className="text-sm text-muted-foreground">Безопасная оплата через банк</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-4 border border-border rounded-lg hover:border-primary cursor-pointer">
+                  <RadioGroupItem value="cash" id="cash" />
+                  <Label htmlFor="cash" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <Icon name="Banknote" size={20} className="text-primary" />
+                      <div>
+                        <p className="font-semibold">Наличными при получении</p>
+                        <p className="text-sm text-muted-foreground">Оплатите курьеру</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="comment">Комментарий к заказу</Label>
+              <Textarea 
+                id="comment" 
+                placeholder="Например: позвонить за час до доставки"
+                value={orderData.comment}
+                onChange={(e) => setOrderData({...orderData, comment: e.target.value})}
+                rows={2}
+              />
+            </div>
+
+            <Card className="bg-card/50">
+              <CardContent className="p-6 space-y-4">
+                <h3 className="font-semibold text-lg">Ваш заказ:</h3>
+                {cart.map((item) => (
+                  <div key={item.product.id} className="flex justify-between text-sm">
+                    <span>{item.product.name} x {item.quantity}</span>
+                    <span className="font-semibold">{item.product.price * item.quantity} ₽</span>
+                  </div>
+                ))}
+                <div className="pt-4 border-t border-border flex justify-between text-lg font-bold">
+                  <span>Итого:</span>
+                  <span className="text-primary">{cartTotal} ₽</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button 
+              size="lg" 
+              className="w-full bg-primary hover:bg-primary/90"
+              onClick={() => {
+                alert('Спасибо за заказ! Мы свяжемся с вами в ближайшее время.');
+                setIsCheckoutOpen(false);
+                setCart([]);
+                setOrderData({
+                  name: '',
+                  phone: '',
+                  email: '',
+                  address: '',
+                  comment: '',
+                  delivery: 'courier',
+                  payment: 'card'
+                });
+              }}
+            >
+              Подтвердить заказ
+              <Icon name="Check" size={20} className="ml-2" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
